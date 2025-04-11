@@ -51,8 +51,8 @@ class CountryballNamePrompt(Modal, title=f"Catch this {settings.collectible_name
 
         player, _ = await Player.get_or_create(discord_id=interaction.user.id)
         if self.ball.caught:
-            await interaction.followup.send(
-                f"{interaction.user.mention} This cat was caught already!",
+            slowlist = [f"{interaction.user.mention}, you were too silly and slow!", f"{interaction.user.mention}, Who was it this time?", f"{interaction.user.mention}, I must inform you, someone else was faster than you.", f"Come on, {interaction.user.mention} thought he had a chance.", f"{interaction.user.mention}, This cat already found another owner!", f"{interaction.user.mention} You caught- oh who am i kidding. You're slow, and you know that.", f"RIP {interaction.user.mention}, hopefully you didn't lose anything rare just now..", f"{interaction.user.mention}, rip lol", f"I have a question {interaction.user.mention}, are you slow on purpose?", f"{interaction.user.mention} was too slow, laugh at this user", f"And once again, {interaction.user.mention} failed to obtain the feline!"]
+                await interaction.followup.send((random.choice(slowlist)),go 
                 ephemeral=True,
                 allowed_mentions=discord.AllowedMentions(users=player.can_be_mentioned),
             )
