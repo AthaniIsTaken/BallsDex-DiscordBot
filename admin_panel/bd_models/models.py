@@ -78,6 +78,7 @@ class Player(models.Model):
     friend_policy = models.SmallIntegerField(
         choices=FriendPolicy.choices, help_text="Open or close your friend requests"
     )
+    extra_data = models.JSONField(blank=True, default=dict)
 
     def is_blacklisted(self) -> bool:
         blacklist = cast(
@@ -309,6 +310,12 @@ class BallInstance(models.Model):
         text = str(self)
         emoji = f'<img src="https://cdn.discordapp.com/emojis/{self.ball.emoji_id}.png?size=20" />'
         return mark_safe(f"{emoji} {text} ATK:{self.attack_bonus:+d}% HP:{self.health_bonus:+d}%")
+
+    @admin.display(description="Time to catch")
+    def catch_time(self):
+        if self.spawned_time:
+            return str(self.catch_date - self.spawned_time)
+        return "-"
 
     class Meta:
         managed = True
