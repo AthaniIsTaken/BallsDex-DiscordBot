@@ -23,6 +23,7 @@ from ballsdex.core.models import (
     balls,
     specials,
 )
+from ballsdex.core.utils.utils import can_mention
 from ballsdex.settings import settings
 
 if TYPE_CHECKING:
@@ -30,7 +31,6 @@ if TYPE_CHECKING:
 
 log = logging.getLogger("ballsdex.packages.countryballs")
 
-spwnmsglist = ["A wild cat appeared!", "One fierce feline approached!", "I wonder when bluenights cheap bcdex clone releases.", "zzZzZz- Oh, a silly cat appeared!", "shoutout to benektelse!", "This cat is judging you.", "hi", "Chat, is this cat real?", "This cat wonders if it's in a spawn rave...", "this is not awakened bahamut", "Catch me before i depart!!", "This cat has a 50% chance to be a shiny.", "Consider trying out Icondex!", "This message could be your advertisement!", "Legends say Shinytacotime is still working on Mina...", "say :3 NOW", "This cat is homeless. Give it a home!", "Join the official BCDEX server!", "This cat asked Gabril to NOT be given to Öfen.", "This is a certified cool dudes spawn message", "We can all agree that MattShea is a nice guy!", "You got a Shigong? Give it to snek.", "Hortas is probably the coolest guy in the community", "Gambling soon...", "You better not be farming..", "This cat is so silly", "Do you still remember AFK?", "Do you still remember öland?", "Do you still remember Pachi?", "BCEDEXs fate was unfortunate, but inevitable.", "Maybe this has a rare special? You never know.", "mfw cat spawned", "Unfortunate how theres so little Uber OGs active..", "What are you talking about? I never added a moth.", "Zenith owns the first ever Labyrinth special!", "Dont be a cheetah!", "Shoutout to everyone playing BCDEX! <3", "This cat is looking for Athani", "This cat is looking for Lamia", "This cat is looking for Öfen", "This cat is looking for Gabril", "This cat is looking for Koolnoob", "This cat is looking for Hortas", "This cat is looking for MrMan", "This cat is looking for Zenith", "Do not trust Evilnoob, he might be evil.", "Qotd? Never heard of that word.", "Go play the battle cats now!", "Will anyone ever get a full completion?", "this cat got a scholarship and rejected it", "and thy punishent is a cat", "You're gonna regret not catching this cat.", "Ururun will never release", "this cat dropped out of high school", "this cat is working a minimum wage job behind the till at a KFC", "This cat is wanted for 742 warn crimes in bosnia and herzegovina", "legends tell of a lil' man enduring hellfire for our benefit. godspeed to this soldier", "Which trauma are you today? Traumacat? Traumarock?", "It's okay to cry. It's okay to run away. You were not made that strong.", "I personally prevented this cat from being rkc.", "How many unknown RKCs do you think exist?", "This cat has failed to beat red cyclone. Laugh at this cat.", "\"idk i aint creative for shit\" - chlorine", "when rave", "benek after turning into the coding guy overnight", "traumareact this for no reason", "Cat, is this chat real?", "basic cat isn't a catch name", "This Cat spends child support on Rare Tickets", "i spawned a special before spawning this", "my SOUL is SHATTERED. this CAT is WHITE", "tin cat be like: \"I've become NP, Talents of Can Can\"", "The BCDEX and Icondex owners are great friends. The communities? uhhhhhhh...."]
 
 class CountryballNamePrompt(Modal, title=f"Catch this {settings.collectible_name}!"):
     name = TextInput(
@@ -61,30 +61,51 @@ class CountryballNamePrompt(Modal, title=f"Catch this {settings.collectible_name
 
         player, _ = await Player.get_or_create(discord_id=interaction.user.id)
         if self.view.caught:
-            slowlist = [f"{interaction.user.mention}, you were too silly and slow!", f"{interaction.user.mention}, Who was it this time?", f"{interaction.user.mention}, I must inform you, someone else was faster than you.", f"Come on, {interaction.user.mention} thought he had a chance.", f"{interaction.user.mention}, This cat already found another owner!", f"{interaction.user.mention} You caught- oh who am i kidding. You're slow, and you know that.", f"RIP {interaction.user.mention}, hopefully you didn't lose anything rare just now..", f"{interaction.user.mention}, rip lol", f"I have a question {interaction.user.mention}, are you slow on purpose?", f"{interaction.user.mention} was too slow, laugh at this user", f"And once again, {interaction.user.mention} failed to obtain the feline!"]
+            slow_message = random.choice(settings.slow_messages).format(
+                user=interaction.user.mention,
+                collectible=settings.collectible_name,
+                ball=self.view.name,
+                collectibles=settings.plural_collectible_name,
+                emoji=interaction.client.get_emoji(self.view.model.emoji_id),
+            )
+
             await interaction.followup.send(
-                (random.choice(slowlist)),
+                slow_message,
                 ephemeral=True,
-                allowed_mentions=discord.AllowedMentions(users=player.can_be_mentioned),
+                allowed_mentions=await can_mention([player]),
             )
             return
 
-        if self.view.is_name_valid(self.name.value):
-            ball, has_caught_before = await self.view.catch_ball(
-                interaction.user, player=player, guild=interaction.guild
-            )
+        if not self.view.is_name_valid(self.name.value):
+            if len(self.name.value) > 500:
+                wrong_name = self.name.value[:500] + "..."
+            else:
+                wrong_name = self.name.value
 
-            await interaction.followup.send(
-                f"{interaction.user.mention} {self.view.get_message(ball, has_caught_before)}",
-                allowed_mentions=discord.AllowedMentions(users=player.can_be_mentioned),
+            wrong_message = random.choice(settings.wrong_messages).format(
+                user=interaction.user.mention,
+                collectible=settings.collectible_name,
+                ball=self.view.name,
+                collectibles=settings.plural_collectible_name,
+                wrong=wrong_name,
+                emoji=interaction.client.get_emoji(self.view.model.emoji_id),
             )
-            await interaction.followup.edit_message(self.view.message.id, view=self.view)
-        else:
             await interaction.followup.send(
-                f"{interaction.user.mention} Wrong name!",
-                allowed_mentions=discord.AllowedMentions(users=player.can_be_mentioned),
+                wrong_message,
+                allowed_mentions=await can_mention([player]),
                 ephemeral=False,
             )
+            return
+
+        ball, has_caught_before = await self.view.catch_ball(
+            interaction.user, player=player, guild=interaction.guild
+        )
+
+        await interaction.followup.send(
+            self.view.get_catch_message(ball, has_caught_before, interaction.user.mention),
+            allowed_mentions=discord.AllowedMentions(users=player.can_be_mentioned),
+        )
+        await interaction.followup.edit_message(self.view.message.id, view=self.view)
 
 
 class BallSpawnView(View):
@@ -128,6 +149,9 @@ class BallSpawnView(View):
         self.special: Special | None = None
         self.atk_bonus: int | None = None
         self.hp_bonus: int | None = None
+        self.og_id: int
+
+        self.catch_button.label = settings.catch_button_label
 
     async def interaction_check(self, interaction: discord.Interaction["BallsDexBot"], /) -> bool:
         return await interaction.client.blacklist_check(interaction)
@@ -145,7 +169,22 @@ class BallSpawnView(View):
     @button(style=discord.ButtonStyle.primary, label="Catch me!")
     async def catch_button(self, interaction: discord.Interaction["BallsDexBot"], button: Button):
         if self.caught:
-            slowlist = [f"{interaction.user.mention}, you were too silly and slow!", f"{interaction.user.mention}, Who was it this time?", f"{interaction.user.mention}, I must inform you, someone else was faster than you.", f"Come on, {interaction.user.mention} thought he had a chance.", f"{interaction.user.mention}, This cat already found another owner!", f"{interaction.user.mention} You caught- oh who am i kidding. You're slow, and you know that.", f"RIP {interaction.user.mention}, hopefully you didn't lose anything rare just now..", f"{interaction.user.mention}, rip lol", f"I have a question {interaction.user.mention}, are you slow on purpose?", f"{interaction.user.mention} was too slow, laugh at this user", f"And once again, {interaction.user.mention} failed to obtain the feline!"]
+            slowlist = [
+                f"{interaction.user.mention}, you were too silly and slow!",
+                f"{interaction.user.mention}, Who was it this time?",
+                f"{interaction.user.mention}, I must inform you, someone else was faster "
+                "than you.",
+                f"Come on, {interaction.user.mention} thought he had a chance.",
+                f"{interaction.user.mention}, This cat already found another owner!",
+                f"{interaction.user.mention} You caught- oh who am i kidding. You're slow, "
+                "and you know that.",
+                f"RIP {interaction.user.mention}, hopefully you didn't lose anything rare "
+                "just now..",
+                f"{interaction.user.mention}, rip lol",
+                f"I have a question {interaction.user.mention}, are you slow on purpose?",
+                f"{interaction.user.mention} was too slow, laugh at this user",
+                f"And once again, {interaction.user.mention} failed to obtain the feline!",
+            ]
             await interaction.response.send_message(random.choices(slowlist), ephemeral=True)
         else:
             await interaction.response.send_modal(CountryballNamePrompt(self))
@@ -167,6 +206,7 @@ class BallSpawnView(View):
 
         view = cls(bot, ball_instance.ball)
         view.ballinstance = ball_instance
+        view.og_id = ball_instance.player.discord_id
         return view
 
     @classmethod
@@ -238,16 +278,23 @@ class BallSpawnView(View):
         try:
             permissions = channel.permissions_for(channel.guild.me)
             if permissions.attach_files and permissions.send_messages:
+                spawn_message = random.choice(settings.spawn_messages).format(
+                    collectible=settings.collectible_name,
+                    ball=self.name,
+                    collectibles=settings.plural_collectible_name,
+                    emoji=self.bot.get_emoji(self.model.emoji_id),
+                )
+
                 self.message = await channel.send(
-                    (random.choice(spwnmsglist)),
+                    spawn_message,
                     view=self,
                     file=discord.File(file_location, filename=file_name),
                 )
                 return True
             else:
-                log.error("Missing permission to spawn ball in channel %s.", channel)
+                log.warning("Missing permission to spawn ball in channel %s.", channel)
         except discord.Forbidden:
-            log.error(f"Missing permission to spawn ball in channel {channel}.")
+            log.warning(f"Missing permission to spawn ball in channel {channel}.")
         except discord.HTTPException:
             log.error("Failed to spawn ball", exc_info=True)
         return False
@@ -271,8 +318,6 @@ class BallSpawnView(View):
             possible_names = (self.name.lower(), *self.model.catch_names.split(";"))
         else:
             possible_names = (self.name.lower(),)
-        if self.model.translations:
-            possible_names += tuple(x.lower() for x in self.model.translations.split(";"))
         cname = text.lower().strip()
         # Remove fancy unicode characters like ’ to replace to '
         cname = cname.replace("\u2019", "'")
@@ -320,6 +365,7 @@ class BallSpawnView(View):
             raise RuntimeError("This ball was already caught!")
         self.caught = True
         self.catch_button.disabled = True
+        caught_time = tortoise_now()
         player = player or (await Player.get_or_create(discord_id=user.id))[0]
         is_new = not await BallInstance.filter(player=player, ball=self.model).exists()
 
@@ -333,7 +379,7 @@ class BallSpawnView(View):
             self.ballinstance.trade_player = self.ballinstance.player
             self.ballinstance.player = player
             self.ballinstance.locked = None  # type: ignore
-            await self.ballinstance.save(update_fields=("player", "trade_player", "locked"))
+            await self.ballinstance.save(update_fields=("player_id", "trade_player_id", "locked"))
             return self.ballinstance, is_new
 
         # stat may vary by +/- 20% of base stat
@@ -362,6 +408,7 @@ class BallSpawnView(View):
             health_bonus=bonus_health,
             server_id=guild.id if guild else None,
             spawned_time=self.message.created_at,
+            catch_date=caught_time,
         )
 
         # logging and stats
@@ -380,7 +427,7 @@ class BallSpawnView(View):
 
         return ball, is_new
 
-    def get_message(self, ball: BallInstance, new_ball: bool) -> str:
+    def get_catch_message(self, ball: BallInstance, new_ball: bool, mention: str) -> str:
         """
         Generate a user-facing message after a ball has been caught.
 
@@ -400,7 +447,21 @@ class BallSpawnView(View):
                 f"This is a **new {settings.collectible_name}** "
                 "that has been added to your completion!"
             )
+        if self.ballinstance:
+            text += f"This {settings.collectible_name} was dropped by <@{self.og_id}>\n"
+
+        caught_message = (
+            random.choice(settings.caught_messages).format(
+                user=mention,
+                collectible=settings.collectible_name,
+                ball=self.name,
+                collectibles=settings.plural_collectible_name,
+                emoji=self.bot.get_emoji(self.model.emoji_id),
+            )
+            + " "
+        )
+
         return (
-            f"You caught **{self.name}!** "
-            f"`(#{ball.pk:0X}, {ball.attack_bonus:+}%/{ball.health_bonus:+}%)`\n\n{text}"
+            caught_message
+            + f"`(#{ball.pk:0X}, {ball.attack_bonus:+}%/{ball.health_bonus:+}%)`\n\n{text}"
         )

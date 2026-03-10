@@ -140,7 +140,7 @@ class History(app_commands.Group):
             )
             return
 
-        ball = await BallInstance.get(id=pk)
+        ball = await BallInstance.get_or_none(id=pk)
         if not ball:
             await interaction.response.send_message(
                 f"The {settings.collectible_name} ID you gave does not exist.", ephemeral=True
@@ -215,7 +215,7 @@ class History(app_commands.Group):
                 if settings.admin_url
                 else None
             ),
-            description=f"Trade ID: {trade.pk:0X}",
+            description=f"Trade ID: `#{trade.pk:0X}`",
             timestamp=trade.date,
         )
         embed.set_footer(text="Trade date: ")
